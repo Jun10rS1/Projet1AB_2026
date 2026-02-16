@@ -1,4 +1,0 @@
-(sym_lib_table
-  (version 7)
-  (lib (name "M95512-RMN6TP")(type "KiCad")(uri "${KIPRJMOD}/M95512-RMN6TP.kicad_sym")(options "")(descr ""))
-)
