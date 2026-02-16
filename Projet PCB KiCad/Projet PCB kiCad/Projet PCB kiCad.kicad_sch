@@ -3682,9 +3682,9 @@
 		)
 		(uuid "622a97b7-c19b-4c0f-b665-a52d3b26249e")
 	)
-	(text "DAC MDP4801\n"
+	(text "EEPROM M95512-RMN6TP\n"
 		(exclude_from_sim no)
-		(at 148.336 36.576 0)
+		(at 159.766 36.322 0)
 		(effects
 			(font
 				(size 2.286 2.286)
@@ -6861,7 +6861,7 @@
 				)
 			)
 		)
-		(property "Footprint" "SOIC127P600X175-8N"
+		(property "Footprint" "Package_SO:SOIC-8_3.9x4.9mm_P1.27mm"
 			(at 173.99 152.07 0)
 			(effects
 				(font
