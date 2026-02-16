@@ -1,0 +1,9 @@
+EESchema-DOCLIB  Version 2.0
+#
+$CMP M95512-RMN6TP
+D 512 Kbit SPI bus EEPROM with high-speed clock
+K
+F https://www.st.com/resource/en/datasheet/m95512-w.pdf
+$ENDCMP
+#
+#End Doc Library
