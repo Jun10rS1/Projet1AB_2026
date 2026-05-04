@@ -59,6 +59,8 @@ void Error_Handler(void);
 /* Private defines -----------------------------------------------------------*/
 #define VL53_PWR_EN_Pin GPIO_PIN_0
 #define VL53_PWR_EN_GPIO_Port GPIOA
+#define LED_Status_Pin GPIO_PIN_5
+#define LED_Status_GPIO_Port GPIOA
 #define VL53_LPN_Pin GPIO_PIN_6
 #define VL53_LPN_GPIO_Port GPIOB
 #define VL53_I2C_RST_Pin GPIO_PIN_7
