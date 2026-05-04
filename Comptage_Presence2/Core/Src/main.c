@@ -19,6 +19,8 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "vl53l5cx_api.h"
+#include "platform.h"
+#include <stdio.h>
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
@@ -136,26 +138,22 @@ int main(void)
     GPIO_InitStruct.Alternate = GPIO_AF4_I2C2;   // AF4 pour I2C2
     HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-    /* USER CODE END SysInit */
-
-    /* Initialize all configured peripherals */
-    MX_GPIO_Init();
-    MX_USART2_UART_Init();
-    MX_I2C2_Init(); // Maintenant, quand cette fonction s'exécute, PA15 est déjà prête.
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_I2C2_Init();
   /* USER CODE BEGIN 2 */
-  // 1. Initialisation des broches du capteur
-    HAL_GPIO_WritePin(LPn_GPIO_Port, LPn_Pin, GPIO_PIN_SET); // Activation I2C
-    HAL_GPIO_WritePin(I2C_RST_GPIO_Port, I2C_RST_Pin, GPIO_PIN_RESET); // Pas de reset matériel
+  // Pour LPn sur PB0
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, GPIO_PIN_SET);
+
+  // Pour I2C_RST sur PA10
+  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_10, GPIO_PIN_RESET);
     HAL_Delay(100);
 
     // 2. Initialisation du capteur VL53L5CX via le driver
     Dev.platform.address = 0x52; // Adresse I2C par défaut
-    Dev.platform.i2c_handle = &hi2c_sensor; // Remplace par ton instance I2C (ex: &hi2c2)
+    Dev.platform.i2c_handle = &hi2c2; // Remplace par ton instance I2C (ex: &hi2c2)
 
     uint8_t isAlive = 0;
     vl53l5cx_is_alive(&Dev, &isAlive);
@@ -216,7 +214,7 @@ int main(void)
                         // L'objet est totalement sorti
                         compteur_passages++;
                         current_state = STATE_IDLE;
-                        HAL_GPIO_TogglePin(LED_Status_GPIO_Port, LED_Status_Pin); // Petit clignotement de ta LED !
+                        HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_8); // PA8 est la broche de ta LED
                         printf("Passage G->D | Compteur : %d\r\n", compteur_passages);
                     }
                     break;
@@ -237,7 +235,7 @@ int main(void)
                         // L'objet est totalement sorti
                         compteur_passages--;
                         current_state = STATE_IDLE;
-                        HAL_GPIO_TogglePin(LED_Status_GPIO_Port, LED_Status_Pin);
+                        HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_8); // PA8 est la broche de ta LED
                         printf("Passage D->G | Compteur : %d\r\n", compteur_passages);
                     }
                     break;
@@ -302,7 +300,7 @@ static void MX_I2C2_Init(void)
 
   /* USER CODE END I2C2_Init 1 */
   hi2c2.Instance = I2C2;
-  hi2c2.Init.Timing = 0x00503D58;
+  hi2c2.Init.Timing = 0x00300617;
   hi2c2.Init.OwnAddress1 = 0;
   hi2c2.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
   hi2c2.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
@@ -341,6 +339,7 @@ static void MX_I2C2_Init(void)
   */
 static void MX_GPIO_Init(void)
 {
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
   /* USER CODE BEGIN MX_GPIO_Init_1 */
 
   /* USER CODE END MX_GPIO_Init_1 */
@@ -348,6 +347,27 @@ static void MX_GPIO_Init(void)
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOF_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOB_CLK_ENABLE();
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(VL53_PWR_EN_GPIO_Port, VL53_PWR_EN_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOB, VL53_LPN_Pin|VL53_I2C_RST_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin : VL53_PWR_EN_Pin */
+  GPIO_InitStruct.Pin = VL53_PWR_EN_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(VL53_PWR_EN_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : VL53_LPN_Pin VL53_I2C_RST_Pin */
+  GPIO_InitStruct.Pin = VL53_LPN_Pin|VL53_I2C_RST_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 
