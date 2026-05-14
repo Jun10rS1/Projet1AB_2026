@@ -266,11 +266,11 @@ uint8_t vl53l5cx_init(
 	status |= VL53L5CX_WrByte(&(p_dev->platform), 0x0103, 0x01);
 	status |= VL53L5CX_WrByte(&(p_dev->platform), 0x000C, 0x00);
 	status |= VL53L5CX_WrByte(&(p_dev->platform), 0x000F, 0x43);
-	status |= VL53L5CX_WaitMs(&(p_dev->platform), 1);
+	status |= VL53L5CX_WaitMs(&(p_dev->platform), 1000);
 
 	status |= VL53L5CX_WrByte(&(p_dev->platform), 0x000F, 0x40);
 	status |= VL53L5CX_WrByte(&(p_dev->platform), 0x000A, 0x01);
-	status |= VL53L5CX_WaitMs(&(p_dev->platform), 100);
+	status |= VL53L5CX_WaitMs(&(p_dev->platform), 1000);
 
 	/* Wait for sensor booted (several ms required to get sensor ready ) */
 	status |= VL53L5CX_WrByte(&(p_dev->platform), 0x7fff, 0x00);
@@ -395,7 +395,7 @@ uint8_t vl53l5cx_init(
 			VL53L5CX_DCI_SINGLE_RANGE,
 			(uint16_t)sizeof(single_range));
 
-	tmp = (uint8_t)1;
+	tmp = (uint8_t)1000;
 	status |= vl53l5cx_dci_replace_data(p_dev, p_dev->temp_buffer,
 			VL53L5CX_GLARE_FILTER, 40, (uint8_t*)&tmp, 1, 0x26);
 	status |= vl53l5cx_dci_replace_data(p_dev, p_dev->temp_buffer,
@@ -642,7 +642,7 @@ uint8_t vl53l5cx_stop_ranging(
 		while(((tmp & (uint8_t)0x80) >> 7) == (uint8_t)0x00)
 		{
 			status |= VL53L5CX_RdByte(&(p_dev->platform), 0x6, &tmp);
-			status |= VL53L5CX_WaitMs(&(p_dev->platform), 10);
+			status |= VL53L5CX_WaitMs(&(p_dev->platform), 10000);
 			timeout++;	/* Timeout reached after 5 seconds */
 
 			if(timeout > (uint16_t)500)

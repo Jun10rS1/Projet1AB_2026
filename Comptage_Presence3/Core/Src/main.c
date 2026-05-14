@@ -31,7 +31,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+#define HAL_UART_MODULE_ENABLED
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -46,18 +46,17 @@ I2C_HandleTypeDef hi2c2;
 VL53L5CX_Configuration 	Dev;
 VL53L5CX_ResultsData 	Results;
 
-#define DIST_THRESHOLD_MM 1000  // Le seuil de 1m dont tu parlais
+#define DIST_THRESHOLD_MM 1000
 
-// Définition des états de notre système
 typedef enum {
     STATE_IDLE,
-    STATE_WAIT_EXIT_RIGHT, // Objet venu de gauche (Col 3), attendu à droite (Col 7)
-    STATE_WAIT_EXIT_LEFT   // Objet venu de droite (Col 4), attendu à gauche (Col 0)
+    STATE_WAIT_EXIT_RIGHT,
+    STATE_WAIT_EXIT_LEFT
 } CountState_t;
 
 CountState_t currentState = STATE_IDLE;
 int32_t passageCounter = 0;
-uint8_t flagTargetInExitCol = 0; // Marqueur pour savoir si l'objet a atteint la sortie
+uint8_t flagTargetInExitCol = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -104,22 +103,35 @@ int main(void)
   MX_GPIO_Init();
   MX_I2C2_Init();
   /* USER CODE BEGIN 2 */
-  // 1. Allumage matériel du capteur via la broche LPn (sur PA10)
-    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_10, GPIO_PIN_RESET); // Éteint
-    HAL_Delay(10);
-    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_10, GPIO_PIN_SET);   // Allume
-    HAL_Delay(100); // Laisse le temps au firmware du capteur de booter
+  /* USER CODE BEGIN 2 */
+    printf("\r\n--- Initialisation VL53L5CX (Mode I2C2) --- \r\n");
 
-    // 2. Initialisation de l'API (Platform I2C doit être implémenté dans le driver)
-    // Assure-toi que Dev.platform pointe bien vers hi2c2 dans ton code d'interface
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, GPIO_PIN_RESET);
+    HAL_Delay(20);
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, GPIO_PIN_SET);
+    HAL_Delay(100);
+
+    Dev.platform.address = 0x52;
+    Dev.platform.i2c_handle = &hi2c2;
+
+    printf("Verification du bus I2C2...\r\n");
+    if(HAL_I2C_IsDeviceReady(&hi2c2, 0x52, 5, 100) == HAL_OK) {
+        printf("Hardware OK : Capteur detecte sur I2C2 (0x52)\r\n");
+    } else {
+        printf("ERREUR Hardware : Rien ne repond sur PA8/PA9\r\n");
+    }
+
     uint8_t isAlive = 0;
-    vl53l5cx_is_alive(&Dev, &isAlive);
+    uint8_t status = vl53l5cx_is_alive(&Dev, &isAlive);
 
-    if (isAlive) {
+    if (status == 0 && isAlive) {
+        printf("Capteur détecté\r\n");
         vl53l5cx_init(&Dev);
         vl53l5cx_set_resolution(&Dev, VL53L5CX_RESOLUTION_8X8);
-        vl53l5cx_set_ranging_frequency_hz(&Dev, 15); // 15 Hz est un bon compromis pour 8x8
+        vl53l5cx_set_ranging_frequency_hz(&Dev, 15);
         vl53l5cx_start_ranging(&Dev);
+    } else {
+        printf("ERREUR : Capteur non détecté\r\n");
     }
   /* USER CODE END 2 */
 
@@ -128,30 +140,23 @@ int main(void)
     while (1)
       {
           uint8_t isReady = 0;
-          // On vérifie si une nouvelle trame 8x8 est disponible
           vl53l5cx_check_data_ready(&Dev, &isReady);
 
           if (isReady) {
-              // Lecture des données
               vl53l5cx_get_ranging_data(&Dev, &Results);
-
-              // Calcul de la moyenne pour nos colonnes clés
               uint32_t avgCol0 = Get_Column_Average(&Results, 0);
               uint32_t avgCol3 = Get_Column_Average(&Results, 3);
               uint32_t avgCol4 = Get_Column_Average(&Results, 4);
               uint32_t avgCol7 = Get_Column_Average(&Results, 7);
 
-              // Machine d'état pour le comptage bidirectionnel
               switch(currentState) {
 
                   case STATE_IDLE:
                       if (avgCol3 < DIST_THRESHOLD_MM) {
-                          // Détection d'un objet venant de la gauche (franchissement col 3)
                           currentState = STATE_WAIT_EXIT_RIGHT;
                           flagTargetInExitCol = 0;
                       }
                       else if (avgCol4 < DIST_THRESHOLD_MM) {
-                          // Détection d'un objet venant de la droite (franchissement col 4)
                           currentState = STATE_WAIT_EXIT_LEFT;
                           flagTargetInExitCol = 0;
                       }
@@ -159,26 +164,20 @@ int main(void)
 
                   case STATE_WAIT_EXIT_RIGHT:
                       if (avgCol7 < DIST_THRESHOLD_MM) {
-                          // L'objet a progressé jusqu'à la colonne 7 (la sortie à droite)
                           flagTargetInExitCol = 1;
                       }
                       else if (flagTargetInExitCol && avgCol7 >= DIST_THRESHOLD_MM) {
-                          // L'objet était sur la colonne 7 et a maintenant quitté le champ de vision
-                          passageCounter++;  // +1 au compteur
-                          currentState = STATE_IDLE; // On se remet en attente d'un nouveau passage
+                          passageCounter++;
+                          currentState = STATE_IDLE;
                       }
-                      // Si avgCol3 redevient > seuil sans que flagTargetInExitCol soit à 1,
-                      // la personne a fait demi-tour. Tu pourrais ajouter un reset ici.
                       break;
 
                   case STATE_WAIT_EXIT_LEFT:
                       if (avgCol0 < DIST_THRESHOLD_MM) {
-                          // L'objet a progressé jusqu'à la colonne 0 (la sortie à gauche)
                           flagTargetInExitCol = 1;
                       }
                       else if (flagTargetInExitCol && avgCol0 >= DIST_THRESHOLD_MM) {
-                          // L'objet était sur la colonne 0 et a maintenant quitté le champ de vision
-                          passageCounter--;  // -1 au compteur
+                          passageCounter--;
                           currentState = STATE_IDLE;
                       }
                       break;
@@ -188,6 +187,7 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
   }
+
   /* USER CODE END 3 */
 }
 
@@ -304,9 +304,6 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(VL53_LPn_GPIO_Port, VL53_LPn_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_RESET);
-
   /*Configure GPIO pin : VL53_INT_Pin */
   GPIO_InitStruct.Pin = VL53_INT_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
@@ -320,12 +317,9 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(VL53_LPn_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : PA15 */
-  GPIO_InitStruct.Pin = GPIO_PIN_15;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI1_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI1_IRQn);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 
@@ -338,9 +332,8 @@ uint32_t Get_Column_Average(VL53L5CX_ResultsData *pResults, uint8_t col_index) {
     uint8_t valid_zones = 0;
 
     for (int row = 0; row < 8; row++) {
-        uint8_t zone = (row * 8) + col_index; // Calcul de l'index 0 à 63
+        uint8_t zone = (row * 8) + col_index;
 
-        // On vérifie que la mesure est valide (les statuts 5 et 9 sont généralement les "bons" statuts chez ST)
         if (pResults->target_status[VL53L5CX_NB_TARGET_PER_ZONE * zone] == 5 ||
             pResults->target_status[VL53L5CX_NB_TARGET_PER_ZONE * zone] == 9) {
 
@@ -349,7 +342,7 @@ uint32_t Get_Column_Average(VL53L5CX_ResultsData *pResults, uint8_t col_index) {
         }
     }
 
-    if (valid_zones == 0) return 9999; // Valeur infinie si aucun objet détecté
+    if (valid_zones == 0) return 9999;
     return (sum / valid_zones);
 }
 /* USER CODE END 4 */
